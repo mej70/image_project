@@ -1,0 +1,29 @@
+[project]
+name = "dti-project"
+version = "0.1.0"
+description = "DTI project"
+authors = [
+    {name = "Florian Kohler"},
+    {name = "Melanie Jarjour"},
+    {name = "Luca Grünewald"},
+    {name = "Sebastian Kalide"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy (>=2.4.3,<3.0.0)",
+    "matplotlib (>=3.10.8,<4.0.0)",
+    "nibabel (>=5.4.2,<6.0.0)",
+    "opencv-python (>=4.13.0.92,<5.0.0.0)",
+    "dipy (>=1.12.0,<2.0.0)",
+    "ipykernel (>=7.2.0,<8.0.0)",
+    "ipywidgets (>=8.1.8,<9.0.0)",
+    "scikit-learn (>=1.8.0,<2.0.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
