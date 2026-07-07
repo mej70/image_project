@@ -3,6 +3,8 @@ import glob
 import nibabel as nib
 import numpy as np
 import cv2
+import torch
+import torch.nn.functional as F
 from dipy.io import read_bvals_bvecs
 from dipy.core.gradients import gradient_table
 from dipy.reconst.dti import TensorModel
@@ -10,7 +12,7 @@ from dipy.reconst.dti import TensorModel
 
 #%% DWI dataset handling
 def find_dwi_datasets(root_dir):
-    dwi_files = glob.glob(os.path.join(root_dir, "*_dwi.nii.gz"))
+    dwi_files = sorted(glob.glob(os.path.join(root_dir, "*_dwi.nii.gz")))
     
     datasets = []
     
@@ -314,3 +316,40 @@ def brain_mask(image,
         raise ValueError("Input image must be 2D, 3D, or 4D.")
 
     return mask, masked
+
+
+def gaussian_window(size, sigma):
+    coords = torch.arange(size, dtype=torch.float32) - (size - 1) / 2
+    g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
+    g /= g.sum()
+    return g
+
+
+def create_window(size=11, sigma=1.5, channels=1):
+    _1D_window = gaussian_window(size, sigma).unsqueeze(1)
+    _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
+    window = _2D_window.expand(channels, 1, size, size)
+    return window
+
+
+def ssim_pytorch(img1, img2, window_size=11, sigma=1.5, data_range=1.0):
+    device = img1.device
+    channels = img1.shape[1]
+    window = create_window(window_size, sigma, channels).to(device)
+    
+    mu1 = F.conv2d(img1, window, padding=window_size//2, groups=channels)
+    mu2 = F.conv2d(img2, window, padding=window_size//2, groups=channels)
+    
+    mu1_sq = mu1.pow(2)
+    mu2_sq = mu2.pow(2)
+    mu1_mu2 = mu1 * mu2
+    
+    sigma1_sq = F.conv2d(img1 * img1, window, padding=window_size//2, groups=channels) - mu1_sq
+    sigma2_sq = F.conv2d(img2 * img2, window, padding=window_size//2, groups=channels) - mu2_sq
+    sigma12 = F.conv2d(img1 * img2, window, padding=window_size//2, groups=channels) - mu1_mu2
+    
+    C1 = (0.01 * data_range) ** 2
+    C2 = (0.03 * data_range) ** 2
+    
+    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
+    return ssim_map.mean()
